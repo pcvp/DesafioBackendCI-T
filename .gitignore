@@ -1,6 +1,7 @@
 # Diretórios de compilação e publicação
 **/bin/
 **/obj/
+**/TestResults/
 
 # Arquivos de compilação e de usuário
 *.user
