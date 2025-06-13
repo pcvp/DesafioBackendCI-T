@@ -1,0 +1,14 @@
+# Diretórios de compilação e publicação
+**/bin/
+**/obj/
+
+# Arquivos de compilação e de usuário
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.nupkg
+*.dbmdl
+
+# Arquivos de cache de ferramentas
+.vs/
