@@ -13,3 +13,4 @@
 
 # Arquivos de cache de ferramentas
 .vs/
+src/Ambev.DeveloperEvaluation.WebApi/logs/
