@@ -53,6 +53,24 @@ public class Program
             builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
             var app = builder.Build();
+            
+            // Execute migrations automatically on startup only for testing purposes
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<DefaultContext>();
+                try
+                {
+                    Log.Information("Applying database migrations...");
+                    context.Database.Migrate();
+                    Log.Information("Database migrations applied successfully");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error applying database migrations");
+                    throw;
+                }
+            }
+            
             app.UseMiddleware<ValidationExceptionMiddleware>();
 
             if (app.Environment.IsDevelopment())
