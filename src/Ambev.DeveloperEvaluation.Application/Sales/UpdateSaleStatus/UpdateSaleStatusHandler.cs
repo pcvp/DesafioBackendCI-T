@@ -45,9 +45,11 @@ public class UpdateSaleStatusHandler : BaseCommandHandler, IRequestHandler<Updat
         if (!validationResult.IsValid)
             throw new ValidationException(validationResult.Errors);
 
-        var sale = await _saleRepository.GetByIdAsync(command.Id, cancellationToken);
+        var sale = await _saleRepository.GetByIdWithItemsAsync(command.Id, cancellationToken);
         if (sale == null)
             throw new InvalidOperationException($"Sale with ID {command.Id} not found");
+
+        
 
         switch (command.Status)
         {

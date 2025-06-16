@@ -211,6 +211,7 @@ public class Sale : BaseEntity
         if (Status == SaleStatusEnum.Closed)
             throw new InvalidOperationException("Sale is already closed");
 
+        TotalAmount = Items.Sum(i => i.TotalAmount);
         Status = SaleStatusEnum.Closed;
         UpdatedAt = DateTime.UtcNow;
     }

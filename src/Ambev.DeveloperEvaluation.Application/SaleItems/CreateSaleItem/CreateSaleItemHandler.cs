@@ -71,8 +71,8 @@ public class CreateSaleItemHandler : BaseCommandHandler, IRequestHandler<CreateS
             command.SaleId,
             command.ProductId,
             command.Quantity,
-            command.UnitPrice, // Use command's unit price
-            command.Discount // Use command's discount
+            product.Price, 
+            0
         );
 
         // Validate domain entity

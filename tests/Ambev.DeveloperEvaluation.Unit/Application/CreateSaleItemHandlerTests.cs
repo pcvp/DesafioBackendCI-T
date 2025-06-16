@@ -248,7 +248,7 @@ public class CreateSaleItemHandlerTests
     {
         // Arrange
         var sale = CreateValidSale();
-        var product = new Ambev.DeveloperEvaluation.Domain.Entities.Product("Test Product", 100m) { Id = Guid.NewGuid() };
+        var product = new Product("Test Product", 100m) { Id = Guid.NewGuid() };
         var command = new CreateSaleItemCommand
         {
             SaleId = sale.Id,
@@ -257,7 +257,7 @@ public class CreateSaleItemHandlerTests
             UnitPrice = 100m,
             Discount = 10m // 10% discount
         };
-        var expectedTotalAmount = 2 * 100m * (1 - 10m / 100); // 2 * 100 * 0.9 = 180
+        var expectedTotalAmount = 2 * 100m * (1 - 0m / 100); // 2 * 100 * 1.0 = 200 (discount is applied later)
         
         SaleItem? capturedSaleItem = null;
         _saleRepository.GetByIdAsync(command.SaleId, Arg.Any<CancellationToken>())

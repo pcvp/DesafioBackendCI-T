@@ -26,12 +26,6 @@ public class CreateSaleItemCommandValidator : AbstractValidator<CreateSaleItemCo
             .LessThanOrEqualTo(20)
             .WithMessage("Quantity cannot exceed 20 items per sale item");
 
-        RuleFor(x => x.UnitPrice)
-            .GreaterThan(0)
-            .WithMessage("Unit price must be greater than 0")
-            .LessThanOrEqualTo(10000)
-            .WithMessage("Unit price cannot exceed $10,000");
-
         RuleFor(x => x.Discount)
             .GreaterThanOrEqualTo(0)
             .WithMessage("Discount cannot be negative")

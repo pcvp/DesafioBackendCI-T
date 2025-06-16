@@ -41,11 +41,6 @@ public class CreateSaleResponse
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// Gets or sets whether the sale is cancelled
-    /// </summary>
-    public bool IsCancelled { get; set; }
-
-    /// <summary>
     /// Gets or sets the list of items in this sale
     /// </summary>
     public List<CreateSaleItemResponse> Items { get; set; } = new List<CreateSaleItemResponse>();

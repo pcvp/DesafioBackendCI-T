@@ -39,6 +39,16 @@ public class SaleRepository : ISaleRepository
     }
 
     /// <summary>
+    /// Retrieves a sale by their unique identifier
+    /// </summary>
+    public async Task<Sale?> GetByIdWithItemsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Sales
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    }
+
+    /// <summary>
     /// Retrieves a sale by their sale number
     /// </summary>
     public async Task<Sale?> GetBySaleNumberAsync(string saleNumber, CancellationToken cancellationToken = default)
@@ -51,9 +61,9 @@ public class SaleRepository : ISaleRepository
     /// Retrieves sales with pagination and optional filtering
     /// </summary>
     public async Task<(IEnumerable<Sale> Sales, int TotalCount)> GetPagedAsync(
-        int page, 
-        int size, 
-        string? saleNumberFilter = null, 
+        int page,
+        int size,
+        string? saleNumberFilter = null,
         Guid? customerIdFilter = null,
         Guid? branchIdFilter = null,
         bool? isCancelledFilter = null,
@@ -151,4 +161,4 @@ public class SaleRepository : ISaleRepository
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
     }
-} 
+}

@@ -50,7 +50,7 @@ public class UpdateSaleStatusHandlerTests
 
         var sale = CreateSaleWithItems(command.Id, productId: Guid.NewGuid(), quantity: 5); // 5 identical items
         
-        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+        _saleRepository.GetByIdWithItemsAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(sale);
         _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
@@ -78,7 +78,7 @@ public class UpdateSaleStatusHandlerTests
 
         var sale = CreateSaleWithItems(command.Id, productId: Guid.NewGuid(), quantity: 15); // 15 identical items
         
-        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+        _saleRepository.GetByIdWithItemsAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(sale);
         _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
@@ -106,7 +106,7 @@ public class UpdateSaleStatusHandlerTests
 
         var sale = CreateSaleWithItems(command.Id, productId: Guid.NewGuid(), quantity: 3, initialDiscount: 15m); // 3 items with existing discount
         
-        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+        _saleRepository.GetByIdWithItemsAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(sale);
         _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
@@ -134,7 +134,7 @@ public class UpdateSaleStatusHandlerTests
 
         var sale = CreateSaleWithItems(command.Id, productId: Guid.NewGuid(), quantity: 25); // 25 identical items
         
-        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+        _saleRepository.GetByIdWithItemsAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(sale);
 
         // Act & Assert
