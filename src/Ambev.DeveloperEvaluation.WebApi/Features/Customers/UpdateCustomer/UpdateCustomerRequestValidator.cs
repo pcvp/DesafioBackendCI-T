@@ -24,7 +24,7 @@ public class UpdateCustomerRequestValidator : AbstractValidator<UpdateCustomerRe
             .WithMessage("Customer name must be between 2 and 100 characters");
 
         RuleFor(customer => customer.Email)
-            .SetValidator(new EmailValidator())
+            .SetValidator(new EmailValidator()!)
             .When(customer => !string.IsNullOrEmpty(customer.Email));
 
         RuleFor(customer => customer.Phone)

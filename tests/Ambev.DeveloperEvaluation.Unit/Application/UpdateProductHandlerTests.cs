@@ -4,6 +4,8 @@ using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
+using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Unit.Application;
 
@@ -12,7 +14,9 @@ namespace Ambev.DeveloperEvaluation.Unit.Application;
 /// </summary>
 public class UpdateProductHandlerTests
 {
+    private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly UpdateProductHandler _handler;
 
     /// <summary>
@@ -21,8 +25,10 @@ public class UpdateProductHandlerTests
     /// </summary>
     public UpdateProductHandlerTests()
     {
+        _productRepository = Substitute.For<IProductRepository>();
         _mapper = Substitute.For<IMapper>();
-        _handler = new UpdateProductHandler(_mapper);
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _handler = new UpdateProductHandler(_productRepository, _mapper, _unitOfWork);
     }
 
     /// <summary>
@@ -33,17 +39,40 @@ public class UpdateProductHandlerTests
     {
         // Given
         var command = ProductTestData.GenerateValidUpdateCommand();
+        var existingProduct = new Ambev.DeveloperEvaluation.Domain.Entities.Product(command.Name, command.Price)
+        {
+            Id = command.Id
+        };
+        var updatedProduct = new Ambev.DeveloperEvaluation.Domain.Entities.Product(command.Name, command.Price)
+        {
+            Id = command.Id
+        };
+        var result = new UpdateProductResult
+        {
+            Id = command.Id,
+            Name = command.Name,
+            Price = command.Price,
+            IsActive = true,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _productRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(existingProduct);
+        _productRepository.UpdateAsync(Arg.Any<Ambev.DeveloperEvaluation.Domain.Entities.Product>(), Arg.Any<CancellationToken>())
+            .Returns(updatedProduct);
+        _mapper.Map<UpdateProductResult>(updatedProduct).Returns(result);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var updateResult = await _handler.Handle(command, CancellationToken.None);
 
         // Then
-        result.Should().NotBeNull();
-        result.Id.Should().Be(command.Id);
-        result.Name.Should().Be(command.Name);
-        result.Price.Should().Be(command.Price);
-        result.IsActive.Should().BeTrue();
-        result.UpdatedAt.Should().NotBeNull();
+        updateResult.Should().NotBeNull();
+        updateResult.Id.Should().Be(command.Id);
+        updateResult.Name.Should().Be(command.Name);
+        updateResult.Price.Should().Be(command.Price);
+        updateResult.IsActive.Should().BeTrue();
+        updateResult.UpdatedAt.Should().NotBeNull();
     }
 
     /// <summary>

@@ -1,3 +1,5 @@
+using Ambev.DeveloperEvaluation.Domain.Entities;
+
 namespace Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 
 /// <summary>
@@ -31,39 +33,19 @@ public class CreateSaleResult
     public Guid BranchId { get; set; }
 
     /// <summary>
-    /// Gets or sets the product ID
+    /// Gets or sets the sale status
     /// </summary>
-    public Guid ProductId { get; set; }
+    public SaleStatusEnum Status { get; set; }
 
     /// <summary>
-    /// Gets or sets the quantity of products sold
-    /// </summary>
-    public int Quantity { get; set; }
-
-    /// <summary>
-    /// Gets or sets the unit price of the product
-    /// </summary>
-    public decimal UnitPrice { get; set; }
-
-    /// <summary>
-    /// Gets or sets the discount applied to the sale
-    /// </summary>
-    public decimal Discount { get; set; }
-
-    /// <summary>
-    /// Gets or sets the total amount for the sale item
+    /// Gets or sets the total amount for the sale (sum of all items)
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// Gets or sets the total sale amount
+    /// Gets or sets the list of items in this sale
     /// </summary>
-    public decimal TotalSaleAmount { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the sale is cancelled
-    /// </summary>
-    public bool IsCancelled { get; set; }
+    public List<CreateSaleItemResult> Items { get; set; } = new List<CreateSaleItemResult>();
 
     /// <summary>
     /// Gets or sets the date and time when the sale was created
@@ -74,4 +56,40 @@ public class CreateSaleResult
     /// Gets or sets the date and time when the sale was last updated
     /// </summary>
     public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Result model for sale item within a sale creation result
+/// </summary>
+public class CreateSaleItemResult
+{
+    /// <summary>
+    /// Gets or sets the unique identifier of the sale item
+    /// </summary>
+    public Guid Id { get; set; }
+
+    /// <summary>
+    /// Gets or sets the product ID
+    /// </summary>
+    public Guid ProductId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the quantity of products
+    /// </summary>
+    public int Quantity { get; set; }
+
+    /// <summary>
+    /// Gets or sets the unit price of the product
+    /// </summary>
+    public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// Gets or sets the discount applied to this item
+    /// </summary>
+    public decimal Discount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total amount for this sale item
+    /// </summary>
+    public decimal TotalAmount { get; set; }
 } 

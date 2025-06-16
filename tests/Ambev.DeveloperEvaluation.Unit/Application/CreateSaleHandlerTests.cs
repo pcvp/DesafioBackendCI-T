@@ -6,6 +6,8 @@ using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
+using Ambev.DeveloperEvaluation.Domain.Uow;
+using Ambev.DeveloperEvaluation.Domain.Events;
 
 namespace Ambev.DeveloperEvaluation.Unit.Application;
 
@@ -16,6 +18,8 @@ public class CreateSaleHandlerTests
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMessagePublisher _messagePublisher;
     private readonly CreateSaleHandler _handler;
 
     /// <summary>
@@ -26,7 +30,9 @@ public class CreateSaleHandlerTests
     {
         _saleRepository = Substitute.For<ISaleRepository>();
         _mapper = Substitute.For<IMapper>();
-        _handler = new CreateSaleHandler(_saleRepository, _mapper);
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _messagePublisher = Substitute.For<IMessagePublisher>();
+        _handler = new CreateSaleHandler(_saleRepository, _mapper, _unitOfWork, _messagePublisher);
     }
 
     /// <summary>
@@ -36,16 +42,20 @@ public class CreateSaleHandlerTests
     public async Task Handle_ValidRequest_ReturnsSuccessResponse()
     {
         // Given
-        var command = SaleTestData.GenerateValidCreateCommand();
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = "SALE001",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
+            CustomerId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Items = new List<CreateSaleItemCommand>()
+        };
+        
         var sale = new Sale(
             command.SaleNumber,
             command.SaleDate,
             command.CustomerId,
-            command.BranchId,
-            command.ProductId,
-            command.Quantity,
-            command.UnitPrice,
-            command.Discount)
+            command.BranchId)
         {
             Id = Guid.NewGuid()
         };
@@ -57,14 +67,11 @@ public class CreateSaleHandlerTests
             SaleDate = sale.SaleDate,
             CustomerId = sale.CustomerId,
             BranchId = sale.BranchId,
-            ProductId = sale.ProductId,
-            Quantity = sale.Quantity,
-            UnitPrice = sale.UnitPrice,
-            Discount = sale.Discount,
             TotalAmount = sale.TotalAmount,
-            TotalSaleAmount = sale.TotalSaleAmount,
-            IsCancelled = sale.IsCancelled,
-            CreatedAt = sale.CreatedAt
+            Status = sale.Status,
+            Items = new List<CreateSaleItemResult>(),
+            CreatedAt = sale.CreatedAt,
+            UpdatedAt = sale.UpdatedAt
         };
 
         _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
@@ -72,6 +79,7 @@ public class CreateSaleHandlerTests
         _saleRepository.CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
             .Returns(sale);
         _mapper.Map<CreateSaleResult>(sale).Returns(result);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var createSaleResult = await _handler.Handle(command, CancellationToken.None);
@@ -81,7 +89,7 @@ public class CreateSaleHandlerTests
         createSaleResult.Id.Should().Be(sale.Id);
         createSaleResult.SaleNumber.Should().Be(command.SaleNumber);
         createSaleResult.TotalAmount.Should().Be(sale.TotalAmount);
-        createSaleResult.IsCancelled.Should().BeFalse();
+        createSaleResult.Status.Should().Be(sale.Status);
         await _saleRepository.Received(1).CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
     }
 
@@ -92,7 +100,14 @@ public class CreateSaleHandlerTests
     public async Task Handle_InvalidRequest_ThrowsValidationException()
     {
         // Given
-        var command = SaleTestData.GenerateInvalidCreateCommand();
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = string.Empty, // Invalid: empty sale number
+            SaleDate = DateTime.UtcNow.AddDays(1), // Invalid: future date
+            CustomerId = Guid.Empty, // Invalid: empty customer ID
+            BranchId = Guid.Empty, // Invalid: empty branch ID
+            Items = new List<CreateSaleItemCommand>() // Empty items list
+        };
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
@@ -102,15 +117,29 @@ public class CreateSaleHandlerTests
     }
 
     /// <summary>
-    /// Tests that duplicate sale number throws validation exception.
+    /// Tests that the sale creation throws exception when sale number already exists.
     /// </summary>
-    [Fact(DisplayName = "Given duplicate sale number When creating sale Then throws validation exception")]
-    public async Task Handle_DuplicateSaleNumber_ThrowsValidationException()
+    [Fact(DisplayName = "Given duplicate sale number When creating sale Then throws exception")]
+    public async Task Handle_DuplicateSaleNumber_ThrowsException()
     {
         // Given
-        var command = SaleTestData.GenerateValidCreateCommand();
-        var existingSale = SaleTestData.GenerateValidSale();
-        existingSale.UpdateSaleInfo(command.SaleNumber, command.SaleDate, command.CustomerId, command.BranchId);
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = "DUPLICATE001",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
+            CustomerId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Items = new List<CreateSaleItemCommand>() // Empty items list
+        };
+        
+        var existingSale = new Sale(
+            command.SaleNumber,
+            command.SaleDate.AddDays(-1),
+            Guid.NewGuid(),
+            Guid.NewGuid())
+        {
+            Id = Guid.NewGuid()
+        };
 
         _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
             .Returns(existingSale);
@@ -119,8 +148,52 @@ public class CreateSaleHandlerTests
         var act = () => _handler.Handle(command, CancellationToken.None);
 
         // Then
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
-            .Where(ex => ex.Errors.Any(e => e.PropertyName == nameof(CreateSaleCommand.SaleNumber)));
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Sale with number {command.SaleNumber} already exists");
+    }
+
+    /// <summary>
+    /// Tests that the sale creation handles null items list correctly.
+    /// </summary>
+    [Fact(DisplayName = "Given command with null items When handling Then creates sale successfully")]
+    public async Task Handle_NullItems_CreatesSaleSuccessfully()
+    {
+        // Given
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = "SALE005",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
+            CustomerId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Items = null // Null items
+        };
+        
+        var sale = new Sale(
+            command.SaleNumber,
+            command.SaleDate,
+            command.CustomerId,
+            command.BranchId)
+        {
+            Id = Guid.NewGuid()
+        };
+
+        _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
+        _saleRepository.CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
+            .Returns(sale);
+        _mapper.Map<CreateSaleResult>(sale).Returns(new CreateSaleResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
+
+        // When
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Then
+        result.Should().NotBeNull();
+        await _saleRepository.Received(1).CreateAsync(
+            Arg.Is<Sale>(s => 
+                s.SaleNumber == command.SaleNumber &&
+                s.Items.Count == 0),
+            Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -130,14 +203,30 @@ public class CreateSaleHandlerTests
     public async Task Handle_ValidRequest_CreatesSaleWithCorrectProperties()
     {
         // Given
-        var command = SaleTestData.GenerateValidCreateCommand();
-        var sale = SaleTestData.GenerateValidSale();
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = "SALE002",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
+            CustomerId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Items = new List<CreateSaleItemCommand>()
+        };
+        
+        var sale = new Sale(
+            command.SaleNumber,
+            command.SaleDate,
+            command.CustomerId,
+            command.BranchId)
+        {
+            Id = Guid.NewGuid()
+        };
 
         _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
             .Returns((Sale?)null);
         _saleRepository.CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
             .Returns(sale);
         _mapper.Map<CreateSaleResult>(Arg.Any<Sale>()).Returns(new CreateSaleResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);
@@ -149,11 +238,7 @@ public class CreateSaleHandlerTests
                 s.SaleDate == command.SaleDate &&
                 s.CustomerId == command.CustomerId &&
                 s.BranchId == command.BranchId &&
-                s.ProductId == command.ProductId &&
-                s.Quantity == command.Quantity &&
-                s.UnitPrice == command.UnitPrice &&
-                s.Discount == command.Discount &&
-                s.IsCancelled == false),
+                s.Status != Ambev.DeveloperEvaluation.Domain.Entities.SaleStatusEnum.Cancelled),
             Arg.Any<CancellationToken>());
     }
 
@@ -164,14 +249,30 @@ public class CreateSaleHandlerTests
     public async Task Handle_ValidRequest_MapsSaleToResult()
     {
         // Given
-        var command = SaleTestData.GenerateValidCreateCommand();
-        var sale = SaleTestData.GenerateValidSale();
+        var command = new CreateSaleCommand
+        {
+            SaleNumber = "SALE003",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
+            CustomerId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Items = new List<CreateSaleItemCommand>()
+        };
+        
+        var sale = new Sale(
+            command.SaleNumber,
+            command.SaleDate,
+            command.CustomerId,
+            command.BranchId)
+        {
+            Id = Guid.NewGuid()
+        };
 
         _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
             .Returns((Sale?)null);
         _saleRepository.CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
             .Returns(sale);
         _mapper.Map<CreateSaleResult>(sale).Returns(new CreateSaleResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);
@@ -196,12 +297,7 @@ public class CreateSaleHandlerTests
             SaleDate = DateTime.Now,
             CustomerId = Guid.NewGuid(),
             BranchId = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            Quantity = 1,
-            UnitPrice = 10.50m,
-            Discount = 0,
-            TotalAmount = 10.50m,
-            TotalSaleAmount = 10.50m
+            Items = new List<CreateSaleItemCommand>()
         };
 
         // When
@@ -213,10 +309,10 @@ public class CreateSaleHandlerTests
     }
 
     /// <summary>
-    /// Tests that validation is performed for invalid quantity.
+    /// Tests that validation is performed for invalid item data.
     /// </summary>
-    [Fact(DisplayName = "Given command with zero quantity When handling Then throws validation exception")]
-    public async Task Handle_ZeroQuantity_ThrowsValidationException()
+    [Fact(DisplayName = "Given command with invalid item When handling Then throws validation exception")]
+    public async Task Handle_InvalidItem_ThrowsValidationException()
     {
         // Given
         var command = new CreateSaleCommand
@@ -225,86 +321,66 @@ public class CreateSaleHandlerTests
             SaleDate = DateTime.Now,
             CustomerId = Guid.NewGuid(),
             BranchId = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            Quantity = 0,
-            UnitPrice = 10.50m,
-            Discount = 0,
-            TotalAmount = 0,
-            TotalSaleAmount = 0
+            Items = new List<CreateSaleItemCommand>
+            {
+                new CreateSaleItemCommand
+                {
+                    ProductId = Guid.Empty, // Invalid: empty product ID
+                    Quantity = 0, // Invalid: zero quantity
+                    UnitPrice = -10.50m, // Invalid: negative price
+                    Discount = 150 // Invalid: discount over 100%
+                }
+            }
         };
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
 
         // Then
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
-            .Where(ex => ex.Errors.Any(e => e.PropertyName == nameof(CreateSaleCommand.Quantity)));
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
     }
 
     /// <summary>
-    /// Tests that validation is performed for negative unit price.
+    /// Tests that sale can be created without items.
     /// </summary>
-    [Fact(DisplayName = "Given command with negative unit price When handling Then throws validation exception")]
-    public async Task Handle_NegativeUnitPrice_ThrowsValidationException()
+    [Fact(DisplayName = "Given command without items When handling Then creates sale successfully")]
+    public async Task Handle_CommandWithoutItems_CreatesSaleSuccessfully()
     {
         // Given
         var command = new CreateSaleCommand
         {
-            SaleNumber = "SALE001",
-            SaleDate = DateTime.Now,
+            SaleNumber = "SALE004",
+            SaleDate = DateTime.UtcNow.AddDays(-1),
             CustomerId = Guid.NewGuid(),
             BranchId = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            Quantity = 1,
-            UnitPrice = -10.50m,
-            Discount = 0,
-            TotalAmount = -10.50m,
-            TotalSaleAmount = -10.50m
+            Items = new List<CreateSaleItemCommand>()
         };
-
-        // When
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Then
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
-            .Where(ex => ex.Errors.Any(e => e.PropertyName == nameof(CreateSaleCommand.UnitPrice)));
-    }
-
-    /// <summary>
-    /// Tests that total amount is calculated correctly.
-    /// </summary>
-    [Fact(DisplayName = "Given valid command When creating sale Then calculates total amount correctly")]
-    public async Task Handle_ValidCommand_CalculatesTotalAmountCorrectly()
-    {
-        // Given
-        var command = new CreateSaleCommand
+        
+        var sale = new Sale(
+            command.SaleNumber,
+            command.SaleDate,
+            command.CustomerId,
+            command.BranchId)
         {
-            SaleNumber = "SALE001",
-            SaleDate = DateTime.Now,
-            CustomerId = Guid.NewGuid(),
-            BranchId = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            Quantity = 2,
-            UnitPrice = 100m,
-            Discount = 10m, // 10%
-            TotalAmount = 180m, // 2 * 100 * (1 - 0.1) = 180
-            TotalSaleAmount = 180m
+            Id = Guid.NewGuid()
         };
-
-        var sale = SaleTestData.GenerateValidSale();
 
         _saleRepository.GetBySaleNumberAsync(command.SaleNumber, Arg.Any<CancellationToken>())
             .Returns((Sale?)null);
         _saleRepository.CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())
             .Returns(sale);
-        _mapper.Map<CreateSaleResult>(Arg.Any<Sale>()).Returns(new CreateSaleResult());
+        _mapper.Map<CreateSaleResult>(sale).Returns(new CreateSaleResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
-        await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         // Then
+        result.Should().NotBeNull();
         await _saleRepository.Received(1).CreateAsync(
-            Arg.Is<Sale>(s => s.TotalAmount == 180m),
+            Arg.Is<Sale>(s => 
+                s.SaleNumber == command.SaleNumber &&
+                s.Items.Count == 0),
             Arg.Any<CancellationToken>());
     }
 } 

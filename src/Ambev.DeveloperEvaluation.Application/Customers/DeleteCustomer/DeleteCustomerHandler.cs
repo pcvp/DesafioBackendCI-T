@@ -1,12 +1,14 @@
+using Ambev.DeveloperEvaluation.Application.Base;
 using MediatR;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Application.Customers.DeleteCustomer;
 
 /// <summary>
 /// Handler for processing DeleteCustomerCommand requests
 /// </summary>
-public class DeleteCustomerHandler : IRequestHandler<DeleteCustomerCommand>
+public class DeleteCustomerHandler : BaseCommandHandler, IRequestHandler<DeleteCustomerCommand>
 {
     private readonly ICustomerRepository _customerRepository;
 
@@ -14,7 +16,8 @@ public class DeleteCustomerHandler : IRequestHandler<DeleteCustomerCommand>
     /// Initializes a new instance of DeleteCustomerHandler
     /// </summary>
     /// <param name="customerRepository">The customer repository</param>
-    public DeleteCustomerHandler(ICustomerRepository customerRepository)
+    /// <param name="unitOfWork">The unit of work</param>
+    public DeleteCustomerHandler(ICustomerRepository customerRepository, IUnitOfWork unitOfWork) : base(unitOfWork)
     {
         _customerRepository = customerRepository;
     }
@@ -24,16 +27,16 @@ public class DeleteCustomerHandler : IRequestHandler<DeleteCustomerCommand>
     /// </summary>
     /// <param name="command">The DeleteCustomer command</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Task representing the operation</returns>
+    /// <returns>Task representing the async operation</returns>
     public async Task Handle(DeleteCustomerCommand command, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"DeleteCustomerHandler: Deleting customer with ID '{command.Id}'");
+        var customer = await _customerRepository.GetByIdAsync(command.Id, cancellationToken);
+        if (customer == null)
+            throw new KeyNotFoundException($"Customer with ID {command.Id} not found");
 
-        var deleted = await _customerRepository.DeleteAsync(command.Id, cancellationToken);
-        
-        if (!deleted)
-            throw new InvalidOperationException($"Customer with ID {command.Id} not found");
+        await _customerRepository.DeleteAsync(command.Id, cancellationToken);
 
-        Console.WriteLine($"DeleteCustomerHandler: Customer with ID '{command.Id}' deleted successfully");
+        if (!await Commit(cancellationToken))
+            throw new InvalidOperationException("Failed to commit customer deletion transaction");
     }
 } 

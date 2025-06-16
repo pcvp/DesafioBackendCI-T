@@ -17,6 +17,10 @@ public class ProductProfile : Profile
     /// </summary>
     public ProductProfile()
     {
+        // Command to Domain entity mappings
+        CreateMap<CreateProductCommand, Product>()
+            .ConstructUsing(src => new Product(src.Name, src.Price));
+
         // Domain entity to Application results mappings
         CreateMap<Product, CreateProductResult>();
         CreateMap<Product, GetProductResult>();

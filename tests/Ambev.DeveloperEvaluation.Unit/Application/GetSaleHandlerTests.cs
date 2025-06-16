@@ -47,13 +47,7 @@ public class GetSaleHandlerTests
             SaleDate = sale.SaleDate,
             CustomerId = sale.CustomerId,
             BranchId = sale.BranchId,
-            ProductId = sale.ProductId,
-            Quantity = sale.Quantity,
-            UnitPrice = sale.UnitPrice,
-            Discount = sale.Discount,
-            TotalAmount = sale.TotalAmount,
-            TotalSaleAmount = sale.TotalSaleAmount,
-            IsCancelled = sale.IsCancelled,
+            Status = sale.Status,
             CreatedAt = sale.CreatedAt,
             UpdatedAt = sale.UpdatedAt
         };
@@ -69,15 +63,14 @@ public class GetSaleHandlerTests
         getSaleResult.Should().NotBeNull();
         getSaleResult.Id.Should().Be(sale.Id);
         getSaleResult.SaleNumber.Should().Be(sale.SaleNumber);
-        getSaleResult.TotalAmount.Should().Be(sale.TotalAmount);
         await _saleRepository.Received(1).GetByIdAsync(query.Id, Arg.Any<CancellationToken>());
     }
 
     /// <summary>
-    /// Tests that when sale is not found, returns null.
+    /// Tests that when sale is not found, throws exception.
     /// </summary>
-    [Fact(DisplayName = "Given non-existent sale id When getting sale Then returns null")]
-    public async Task Handle_SaleNotFound_ReturnsNull()
+    [Fact(DisplayName = "Given non-existent sale id When getting sale Then throws exception")]
+    public async Task Handle_SaleNotFound_ThrowsException()
     {
         // Given
         var query = SaleTestData.GenerateValidGetQuery();
@@ -86,10 +79,11 @@ public class GetSaleHandlerTests
             .Returns((Sale?)null);
 
         // When
-        var result = await _handler.Handle(query, CancellationToken.None);
+        var act = () => _handler.Handle(query, CancellationToken.None);
 
         // Then
-        result.Should().BeNull();
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage($"Sale with ID {query.Id} not found");
         await _saleRepository.Received(1).GetByIdAsync(query.Id, Arg.Any<CancellationToken>());
         _mapper.DidNotReceive().Map<GetSaleResult>(Arg.Any<Sale>());
     }
@@ -107,8 +101,8 @@ public class GetSaleHandlerTests
         var act = () => _handler.Handle(query, CancellationToken.None);
 
         // Then
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
-            .Where(ex => ex.Errors.Any(e => e.PropertyName == nameof(GetSaleQuery.Id)));
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Sale ID cannot be empty*");
     }
 
     /// <summary>
@@ -149,7 +143,12 @@ public class GetSaleHandlerTests
         {
             Id = sale.Id,
             SaleNumber = sale.SaleNumber,
-            IsCancelled = true
+            SaleDate = sale.SaleDate,
+            CustomerId = sale.CustomerId,
+            BranchId = sale.BranchId,
+            Status = sale.Status,
+            CreatedAt = sale.CreatedAt,
+            UpdatedAt = sale.UpdatedAt
         };
 
         _saleRepository.GetByIdAsync(query.Id, Arg.Any<CancellationToken>())
@@ -161,6 +160,6 @@ public class GetSaleHandlerTests
 
         // Then
         getSaleResult.Should().NotBeNull();
-        getSaleResult.IsCancelled.Should().BeTrue();
+        getSaleResult.Status.Should().Be(sale.Status);
     }
 } 

@@ -33,14 +33,13 @@ public class GetSalesHandler : IRequestHandler<GetSalesQuery, GetSalesResult>
     {
         Console.WriteLine($"GetSalesHandler: Retrieving sales - Page: {query.Page}, Size: {query.Size}, Search: '{query.Search}'");
 
-        // Get sales from repository with pagination and filtering
         var (sales, totalCount) = await _saleRepository.GetPagedAsync(
             query.Page,
             query.Size,
-            query.Search, // Use search as sale number filter
-            null, // customerIdFilter
-            null, // branchIdFilter
-            null, // isCancelledFilter
+            query.Search, 
+            null, 
+            null, 
+            null, 
             cancellationToken
         );
 
@@ -48,7 +47,7 @@ public class GetSalesHandler : IRequestHandler<GetSalesQuery, GetSalesResult>
 
         var result = new GetSalesResult
         {
-            Data = _mapper.Map<List<SaleResultDto>>(sales),
+            Sales = _mapper.Map<List<SaleResultDto>>(sales),
             CurrentPage = query.Page,
             TotalPages = totalPages,
             TotalCount = totalCount,
@@ -56,7 +55,7 @@ public class GetSalesHandler : IRequestHandler<GetSalesQuery, GetSalesResult>
             HasPrevious = query.Page > 1
         };
 
-        Console.WriteLine($"GetSalesHandler: Retrieved {result.Data.Count} sales successfully");
+        Console.WriteLine($"GetSalesHandler: Retrieved {result.Sales.Count} sales successfully");
 
         return result;
     }

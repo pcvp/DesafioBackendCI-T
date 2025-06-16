@@ -32,6 +32,23 @@ public class CreateSaleRequestValidator : AbstractValidator<CreateSaleRequest>
             .NotEmpty()
             .WithMessage("Branch ID is required");
 
+        // Validate Items collection if provided
+        RuleForEach(x => x.Items)
+            .SetValidator(new CreateSaleItemRequestValidator())
+            .When(x => x.Items != null && x.Items.Any());
+    }
+}
+
+/// <summary>
+/// Validator for CreateSaleItemRequest
+/// </summary>
+public class CreateSaleItemRequestValidator : AbstractValidator<CreateSaleItemRequest>
+{
+    /// <summary>
+    /// Initializes validation rules for CreateSaleItemRequest
+    /// </summary>
+    public CreateSaleItemRequestValidator()
+    {
         RuleFor(x => x.ProductId)
             .NotEmpty()
             .WithMessage("Product ID is required");
@@ -39,14 +56,14 @@ public class CreateSaleRequestValidator : AbstractValidator<CreateSaleRequest>
         RuleFor(x => x.Quantity)
             .GreaterThan(0)
             .WithMessage("Quantity must be greater than zero")
-            .LessThanOrEqualTo(1000)
-            .WithMessage("Quantity cannot exceed 1000 units");
+            .LessThanOrEqualTo(20) // Based on SaleItem entity validation
+            .WithMessage("Quantity cannot exceed 20 units per item");
 
         RuleFor(x => x.UnitPrice)
             .GreaterThan(0)
             .WithMessage("Unit price must be greater than zero")
-            .LessThanOrEqualTo(999999.99m)
-            .WithMessage("Unit price cannot exceed 999,999.99");
+            .LessThanOrEqualTo(10000) // Based on SaleItem entity validation
+            .WithMessage("Unit price cannot exceed $10,000");
 
         RuleFor(x => x.Discount)
             .GreaterThanOrEqualTo(0)

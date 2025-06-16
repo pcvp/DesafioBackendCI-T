@@ -1,4 +1,5 @@
 using Ambev.DeveloperEvaluation.Common.Validation;
+using Ambev.DeveloperEvaluation.Domain.Entities;
 using MediatR;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.UpdateSale;
@@ -54,9 +55,9 @@ public class UpdateSaleCommand : IRequest<UpdateSaleResult>
     public decimal Discount { get; set; }
 
     /// <summary>
-    /// Gets or sets whether the sale is cancelled
+    /// Gets or sets the status of the sale
     /// </summary>
-    public bool IsCancelled { get; set; }
+    public SaleStatusEnum Status { get; set; }
 
     /// <summary>
     /// Validates the command using the UpdateSaleCommandValidator

@@ -28,7 +28,7 @@ public class CustomerValidator : AbstractValidator<Customer>
             .WithMessage("Customer name cannot be longer than 100 characters");
 
         RuleFor(customer => customer.Email)
-            .SetValidator(new EmailValidator())
+            .SetValidator(new EmailValidator()!)
             .When(customer => !string.IsNullOrEmpty(customer.Email));
 
         RuleFor(customer => customer.Phone)

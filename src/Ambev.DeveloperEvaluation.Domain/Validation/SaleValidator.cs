@@ -17,10 +17,8 @@ public class SaleValidator : AbstractValidator<Sale>
     /// - SaleDate: Required, cannot be in the future
     /// - CustomerId: Required, must not be empty GUID
     /// - BranchId: Required, must not be empty GUID
-    /// - ProductId: Required, must not be empty GUID
-    /// - Quantity: Must be greater than 0 and less than or equal to 1000
-    /// - UnitPrice: Must be greater than 0 and less than or equal to 999,999.99
-    /// - Discount: Must be between 0 and 100 (inclusive)
+    /// - TotalAmount: Must be greater than or equal to 0
+    /// - Items: Must have at least one item
     /// </remarks>
     public SaleValidator()
     {
@@ -46,34 +44,12 @@ public class SaleValidator : AbstractValidator<Sale>
             .NotEmpty()
             .WithMessage("Branch ID is required");
 
-        RuleFor(sale => sale.ProductId)
-            .NotEmpty()
-            .WithMessage("Product ID is required");
-
-        RuleFor(sale => sale.Quantity)
-            .GreaterThan(0)
-            .WithMessage("Quantity must be greater than zero")
-            .LessThanOrEqualTo(1000)
-            .WithMessage("Quantity cannot exceed 1000 units");
-
-        RuleFor(sale => sale.UnitPrice)
-            .GreaterThan(0)
-            .WithMessage("Unit price must be greater than zero")
-            .LessThanOrEqualTo(999999.99m)
-            .WithMessage("Unit price cannot exceed 999,999.99");
-
-        RuleFor(sale => sale.Discount)
-            .GreaterThanOrEqualTo(0)
-            .WithMessage("Discount cannot be negative")
-            .LessThanOrEqualTo(100)
-            .WithMessage("Discount cannot exceed 100%");
-
         RuleFor(sale => sale.TotalAmount)
             .GreaterThanOrEqualTo(0)
             .WithMessage("Total amount cannot be negative");
 
-        RuleFor(sale => sale.TotalSaleAmount)
-            .GreaterThanOrEqualTo(0)
-            .WithMessage("Total sale amount cannot be negative");
+        RuleFor(sale => sale.Status)
+            .IsInEnum()
+            .WithMessage("Invalid sale status");
     }
 } 

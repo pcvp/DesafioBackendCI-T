@@ -1,5 +1,7 @@
 using Ambev.DeveloperEvaluation.Application.Products.GetProducts;
 using Ambev.DeveloperEvaluation.Unit.Application.TestData;
+using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Entities;
 using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
@@ -12,6 +14,7 @@ namespace Ambev.DeveloperEvaluation.Unit.Application;
 /// </summary>
 public class GetProductsHandlerTests
 {
+    private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
     private readonly GetProductsHandler _handler;
 
@@ -21,8 +24,9 @@ public class GetProductsHandlerTests
     /// </summary>
     public GetProductsHandlerTests()
     {
+        _productRepository = Substitute.For<IProductRepository>();
         _mapper = Substitute.For<IMapper>();
-        _handler = new GetProductsHandler(_mapper);
+        _handler = new GetProductsHandler(_productRepository, _mapper);
     }
 
     /// <summary>
@@ -33,6 +37,12 @@ public class GetProductsHandlerTests
     {
         // Given
         var query = ProductTestData.GenerateValidGetProductsQuery();
+        var products = ProductTestData.GenerateValidProducts(3);
+        var productDtos = ProductTestData.GenerateValidProductDtos(3);
+        
+        _productRepository.GetPagedAsync(query.Page, query.Size, query.Search, Arg.Any<CancellationToken>())
+            .Returns((products, products.Count));
+        _mapper.Map<List<ProductDto>>(products).Returns(productDtos);
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -41,8 +51,8 @@ public class GetProductsHandlerTests
         result.Should().NotBeNull();
         result.Products.Should().NotBeNull();
         result.CurrentPage.Should().Be(query.Page);
-        result.TotalCount.Should().BeGreaterThanOrEqualTo(0);
-        result.TotalPages.Should().BeGreaterThanOrEqualTo(0);
+        result.TotalCount.Should().Be(products.Count);
+        result.TotalPages.Should().BeGreaterThanOrEqualTo(1);
     }
 
     /// <summary>
@@ -78,6 +88,12 @@ public class GetProductsHandlerTests
             Size = 10,
             Search = "Dell"
         };
+        var products = new List<Product>();
+        var productDtos = new List<ProductDto>();
+        
+        _productRepository.GetPagedAsync(query.Page, query.Size, query.Search, Arg.Any<CancellationToken>())
+            .Returns((products, products.Count));
+        _mapper.Map<List<ProductDto>>(products).Returns(productDtos);
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -85,10 +101,7 @@ public class GetProductsHandlerTests
         // Then
         result.Should().NotBeNull();
         result.Products.Should().NotBeNull();
-        if (result.Products.Any())
-        {
-            result.Products.Should().OnlyContain(p => p.Name.Contains("Dell", StringComparison.OrdinalIgnoreCase));
-        }
+        await _productRepository.Received(1).GetPagedAsync(query.Page, query.Size, "Dell", Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -103,6 +116,12 @@ public class GetProductsHandlerTests
             Page = 1,
             Size = 2
         };
+        var products = ProductTestData.GenerateValidProducts(2);
+        var productDtos = ProductTestData.GenerateValidProductDtos(2);
+        
+        _productRepository.GetPagedAsync(query.Page, query.Size, query.Search, Arg.Any<CancellationToken>())
+            .Returns((products, products.Count));
+        _mapper.Map<List<ProductDto>>(products).Returns(productDtos);
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -110,7 +129,7 @@ public class GetProductsHandlerTests
         // Then
         result.Should().NotBeNull();
         result.CurrentPage.Should().Be(1);
-        result.Products.Should().HaveCountLessOrEqualTo(2);
+        result.Products.Should().HaveCount(2);
     }
 
     /// <summary>
@@ -146,6 +165,12 @@ public class GetProductsHandlerTests
             Page = 1,
             Size = 2
         };
+        var products = ProductTestData.GenerateValidProducts(5);
+        var productDtos = ProductTestData.GenerateValidProductDtos(2);
+        
+        _productRepository.GetPagedAsync(query.Page, query.Size, query.Search, Arg.Any<CancellationToken>())
+            .Returns((products.Take(2), 5));
+        _mapper.Map<List<ProductDto>>(Arg.Any<IEnumerable<Product>>()).Returns(productDtos);
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -153,9 +178,8 @@ public class GetProductsHandlerTests
         // Then
         result.Should().NotBeNull();
         result.HasPrevious.Should().BeFalse();
-        if (result.TotalCount > result.Products.Count)
-        {
-            result.HasNext.Should().BeTrue();
-        }
+        result.HasNext.Should().BeTrue();
+        result.TotalCount.Should().Be(5);
+        result.TotalPages.Should().Be(3);
     }
 } 

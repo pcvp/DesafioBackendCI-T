@@ -1,13 +1,15 @@
+using Ambev.DeveloperEvaluation.Application.Base;
 using MediatR;
 using FluentValidation;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Application.Users.DeleteUser;
 
 /// <summary>
 /// Handler for processing DeleteUserCommand requests
 /// </summary>
-public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, DeleteUserResponse>
+public class DeleteUserHandler : BaseCommandHandler, IRequestHandler<DeleteUserCommand, DeleteUserResponse>
 {
     private readonly IUserRepository _userRepository;
 
@@ -15,9 +17,8 @@ public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, DeleteUserRe
     /// Initializes a new instance of DeleteUserHandler
     /// </summary>
     /// <param name="userRepository">The user repository</param>
-    /// <param name="validator">The validator for DeleteUserCommand</param>
-    public DeleteUserHandler(
-        IUserRepository userRepository)
+    /// <param name="unitOfWork">The unit of work</param>
+    public DeleteUserHandler(IUserRepository userRepository, IUnitOfWork unitOfWork) : base(unitOfWork)
     {
         _userRepository = userRepository;
     }
@@ -25,20 +26,21 @@ public class DeleteUserHandler : IRequestHandler<DeleteUserCommand, DeleteUserRe
     /// <summary>
     /// Handles the DeleteUserCommand request
     /// </summary>
-    /// <param name="request">The DeleteUser command</param>
+    /// <param name="command">The DeleteUser command</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The result of the delete operation</returns>
-    public async Task<DeleteUserResponse> Handle(DeleteUserCommand request, CancellationToken cancellationToken)
+    /// <returns>The delete operation result</returns>
+    public async Task<DeleteUserResponse> Handle(DeleteUserCommand command, CancellationToken cancellationToken)
     {
-        var validator = new DeleteUserValidator();
-        var validationResult = await validator.ValidateAsync(request, cancellationToken);
+        var user = await _userRepository.GetByIdAsync(command.Id, cancellationToken);
+        if (user == null)
+            throw new KeyNotFoundException($"User with ID {command.Id} not found");
 
-        if (!validationResult.IsValid)
-            throw new ValidationException(validationResult.Errors);
-
-        var success = await _userRepository.DeleteAsync(request.Id, cancellationToken);
+        var success = await _userRepository.DeleteAsync(command.Id, cancellationToken);
         if (!success)
-            throw new KeyNotFoundException($"User with ID {request.Id} not found");
+            throw new InvalidOperationException($"Failed to delete user with ID {command.Id}");
+
+        if (!await Commit(cancellationToken))
+            throw new InvalidOperationException("Failed to commit user deletion transaction");
 
         return new DeleteUserResponse { Success = true };
     }

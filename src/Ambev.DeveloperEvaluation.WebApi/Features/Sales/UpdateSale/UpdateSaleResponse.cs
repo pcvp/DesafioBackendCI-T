@@ -1,3 +1,5 @@
+using Ambev.DeveloperEvaluation.Domain.Entities;
+
 namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales.UpdateSale;
 
 /// <summary>
@@ -31,39 +33,14 @@ public class UpdateSaleResponse
     public Guid BranchId { get; set; }
 
     /// <summary>
-    /// Gets or sets the product ID
-    /// </summary>
-    public Guid ProductId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the quantity of products sold
-    /// </summary>
-    public int Quantity { get; set; }
-
-    /// <summary>
-    /// Gets or sets the unit price of the product
-    /// </summary>
-    public decimal UnitPrice { get; set; }
-
-    /// <summary>
-    /// Gets or sets the discount applied to the sale
-    /// </summary>
-    public decimal Discount { get; set; }
-
-    /// <summary>
-    /// Gets or sets the total amount for the sale item
+    /// Gets or sets the total amount for the sale
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// Gets or sets the total sale amount
+    /// Gets or sets the sale status
     /// </summary>
-    public decimal TotalSaleAmount { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the sale is cancelled
-    /// </summary>
-    public bool IsCancelled { get; set; }
+    public SaleStatusEnum Status { get; set; }
 
     /// <summary>
     /// Gets or sets the date and time when the sale was created

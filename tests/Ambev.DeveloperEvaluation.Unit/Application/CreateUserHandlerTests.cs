@@ -7,6 +7,8 @@ using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
+using Ambev.DeveloperEvaluation.Unit.Application.TestData;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Unit.Application;
 
@@ -17,6 +19,7 @@ public class CreateUserHandlerTests
 {
     private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly CreateUserHandler _handler;
 
@@ -28,8 +31,9 @@ public class CreateUserHandlerTests
     {
         _userRepository = Substitute.For<IUserRepository>();
         _mapper = Substitute.For<IMapper>();
+        _unitOfWork = Substitute.For<IUnitOfWork>();
         _passwordHasher = Substitute.For<IPasswordHasher>();
-        _handler = new CreateUserHandler(_userRepository, _mapper, _passwordHasher);
+        _handler = new CreateUserHandler(_userRepository, _mapper, _unitOfWork, _passwordHasher);
     }
 
     /// <summary>
@@ -56,13 +60,13 @@ public class CreateUserHandlerTests
             Id = user.Id,
         };
 
-
         _mapper.Map<User>(command).Returns(user);
         _mapper.Map<CreateUserResult>(user).Returns(result);
+        _passwordHasher.HashPassword(command.Password).Returns("hashedPassword");
 
         _userRepository.CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())
             .Returns(user);
-        _passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashedPassword");
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var createUserResult = await _handler.Handle(command, CancellationToken.None);
@@ -90,15 +94,13 @@ public class CreateUserHandlerTests
     }
 
     /// <summary>
-    /// Tests that the password is hashed before saving the user.
+    /// Tests that the password is properly hashed before saving.
     /// </summary>
     [Fact(DisplayName = "Given user creation request When handling Then password is hashed")]
     public async Task Handle_ValidRequest_HashesPassword()
     {
         // Given
         var command = CreateUserHandlerTestData.GenerateValidCommand();
-        var originalPassword = command.Password;
-        const string hashedPassword = "h@shedPassw0rd";
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -110,18 +112,27 @@ public class CreateUserHandlerTests
             Role = command.Role
         };
 
+        var result = new CreateUserResult
+        {
+            Id = user.Id,
+        };
+
         _mapper.Map<User>(command).Returns(user);
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>())
+            .Returns((User?)null);
         _userRepository.CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())
             .Returns(user);
-        _passwordHasher.HashPassword(originalPassword).Returns(hashedPassword);
+        _mapper.Map<CreateUserResult>(user).Returns(result);
+        _passwordHasher.HashPassword(command.Password).Returns("hashedPassword");
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);
 
         // Then
-        _passwordHasher.Received(1).HashPassword(originalPassword);
+        _passwordHasher.Received(1).HashPassword(command.Password);
         await _userRepository.Received(1).CreateAsync(
-            Arg.Is<User>(u => u.Password == hashedPassword),
+            Arg.Is<User>(u => u.Password == "hashedPassword"),
             Arg.Any<CancellationToken>());
     }
 
@@ -145,9 +156,10 @@ public class CreateUserHandlerTests
         };
 
         _mapper.Map<User>(command).Returns(user);
+        _passwordHasher.HashPassword(command.Password).Returns("hashedPassword");
         _userRepository.CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())
             .Returns(user);
-        _passwordHasher.HashPassword(Arg.Any<string>()).Returns("hashedPassword");
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);

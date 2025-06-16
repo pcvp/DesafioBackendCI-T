@@ -26,12 +26,23 @@ public class CreateSaleRequest
     public Guid BranchId { get; set; }
 
     /// <summary>
+    /// Gets or sets the list of items for this sale (optional - can be added later)
+    /// </summary>
+    public List<CreateSaleItemRequest>? Items { get; set; } = new List<CreateSaleItemRequest>();
+}
+
+/// <summary>
+/// Request model for creating a sale item within a sale
+/// </summary>
+public class CreateSaleItemRequest
+{
+    /// <summary>
     /// Gets or sets the product ID
     /// </summary>
     public Guid ProductId { get; set; }
 
     /// <summary>
-    /// Gets or sets the quantity of products sold
+    /// Gets or sets the quantity of products
     /// </summary>
     public int Quantity { get; set; }
 
@@ -41,7 +52,7 @@ public class CreateSaleRequest
     public decimal UnitPrice { get; set; }
 
     /// <summary>
-    /// Gets or sets the discount applied to the sale
+    /// Gets or sets the discount applied to this item (0-100%)
     /// </summary>
-    public decimal Discount { get; set; }
+    public decimal Discount { get; set; } = 0;
 } 

@@ -62,6 +62,16 @@ public static class ProductTestData
         .RuleFor(p => p.UpdatedAt, f => f.Random.Bool() ? f.Date.Recent() : null);
 
     /// <summary>
+    /// Configures the Faker to generate valid ProductDto entities.
+    /// </summary>
+    private static readonly Faker<ProductDto> productDtoFaker = new Faker<ProductDto>()
+        .RuleFor(p => p.Id, f => f.Random.Guid())
+        .RuleFor(p => p.Name, f => f.Commerce.ProductName())
+        .RuleFor(p => p.Price, f => f.Random.Decimal(1, 9999))
+        .RuleFor(p => p.IsActive, f => f.Random.Bool())
+        .RuleFor(p => p.CreatedAt, f => f.Date.Recent());
+
+    /// <summary>
     /// Generates a valid CreateProductCommand with randomized data.
     /// </summary>
     /// <returns>A valid CreateProductCommand with randomly generated data.</returns>
@@ -123,5 +133,24 @@ public static class ProductTestData
     public static List<Product> GenerateValidProducts(int count = 5)
     {
         return productFaker.Generate(count);
+    }
+
+    /// <summary>
+    /// Generates a valid ProductDto with randomized data.
+    /// </summary>
+    /// <returns>A valid ProductDto with randomly generated data.</returns>
+    public static ProductDto GenerateValidProductDto()
+    {
+        return productDtoFaker.Generate();
+    }
+
+    /// <summary>
+    /// Generates a list of valid ProductDto entities with randomized data.
+    /// </summary>
+    /// <param name="count">Number of product DTOs to generate</param>
+    /// <returns>A list of valid ProductDto entities with randomly generated data.</returns>
+    public static List<ProductDto> GenerateValidProductDtos(int count = 5)
+    {
+        return productDtoFaker.Generate(count);
     }
 } 

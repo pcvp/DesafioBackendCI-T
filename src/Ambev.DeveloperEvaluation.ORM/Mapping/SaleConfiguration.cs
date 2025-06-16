@@ -24,15 +24,18 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.SaleDate).IsRequired();
         builder.Property(s => s.CustomerId).IsRequired();
         builder.Property(s => s.BranchId).IsRequired();
-        builder.Property(s => s.ProductId).IsRequired();
-        builder.Property(s => s.Quantity).IsRequired();
-        builder.Property(s => s.UnitPrice).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(s => s.Discount).IsRequired().HasColumnType("decimal(5,2)");
         builder.Property(s => s.TotalAmount).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(s => s.TotalSaleAmount).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(s => s.IsCancelled).IsRequired().HasDefaultValue(false);
+        builder.Property(s => s.Status).IsRequired().HasConversion<int>();
         builder.Property(s => s.CreatedAt).IsRequired();
         builder.Property(s => s.UpdatedAt);
+
+        builder.Ignore(s => s.TotalSaleAmount);
+
+        // Configure one-to-many relationship with SaleItems
+        builder.HasMany(s => s.Items)
+            .WithOne(si => si.Sale)
+            .HasForeignKey(si => si.SaleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Create unique index on sale number
         builder.HasIndex(s => s.SaleNumber).IsUnique();
@@ -40,14 +43,13 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         // Create indexes for common queries
         builder.HasIndex(s => s.CustomerId);
         builder.HasIndex(s => s.BranchId);
-        builder.HasIndex(s => s.ProductId);
         builder.HasIndex(s => s.SaleDate);
-        builder.HasIndex(s => s.IsCancelled);
+        builder.HasIndex(s => s.Status);
         builder.HasIndex(s => s.CreatedAt);
 
         // Composite indexes for common filter combinations
         builder.HasIndex(s => new { s.CustomerId, s.SaleDate });
         builder.HasIndex(s => new { s.BranchId, s.SaleDate });
-        builder.HasIndex(s => new { s.IsCancelled, s.SaleDate });
+        builder.HasIndex(s => new { s.Status, s.SaleDate });
     }
 }

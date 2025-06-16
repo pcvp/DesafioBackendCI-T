@@ -29,24 +29,9 @@ public class CreateSaleCommand : IRequest<CreateSaleResult>
     public Guid BranchId { get; set; }
 
     /// <summary>
-    /// Gets or sets the product ID
+    /// Gets or sets the list of items for this sale (optional - can be added later)
     /// </summary>
-    public Guid ProductId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the quantity of products sold
-    /// </summary>
-    public int Quantity { get; set; }
-
-    /// <summary>
-    /// Gets or sets the unit price of the product
-    /// </summary>
-    public decimal UnitPrice { get; set; }
-
-    /// <summary>
-    /// Gets or sets the discount applied to the sale
-    /// </summary>
-    public decimal Discount { get; set; }
+    public List<CreateSaleItemCommand>? Items { get; set; } = new List<CreateSaleItemCommand>();
 
     /// <summary>
     /// Validates the command using the CreateSaleCommandValidator
@@ -62,4 +47,30 @@ public class CreateSaleCommand : IRequest<CreateSaleResult>
             Errors = result.Errors.Select(o => (ValidationErrorDetail)o)
         };
     }
+}
+
+/// <summary>
+/// Command for creating a sale item within a sale
+/// </summary>
+public class CreateSaleItemCommand
+{
+    /// <summary>
+    /// Gets or sets the product ID
+    /// </summary>
+    public Guid ProductId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the quantity of products
+    /// </summary>
+    public int Quantity { get; set; }
+
+    /// <summary>
+    /// Gets or sets the unit price of the product
+    /// </summary>
+    public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// Gets or sets the discount applied to this item (0-100%)
+    /// </summary>
+    public decimal Discount { get; set; } = 0;
 } 

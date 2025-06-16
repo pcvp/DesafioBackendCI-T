@@ -14,17 +14,30 @@ public static class SaleTestData
     /// Configures the Faker to generate valid Sale entities.
     /// </summary>
     private static readonly Faker<Sale> saleFaker = new Faker<Sale>()
+        .CustomInstantiator(f => new Sale(
+            f.Random.AlphaNumeric(10),
+            f.Date.Recent(),
+            f.Random.Guid(),
+            f.Random.Guid()
+        ))
         .RuleFor(s => s.Id, f => f.Random.Guid())
-        .RuleFor(s => s.SaleNumber, f => f.Random.AlphaNumeric(10))
-        .RuleFor(s => s.SaleDate, f => f.Date.Recent())
-        .RuleFor(s => s.CustomerId, f => f.Random.Guid())
-        .RuleFor(s => s.BranchId, f => f.Random.Guid())
-        .RuleFor(s => s.ProductId, f => f.Random.Guid())
-        .RuleFor(s => s.Quantity, f => f.Random.Int(1, 100))
-        .RuleFor(s => s.UnitPrice, f => f.Random.Decimal(1, 1000))
-        .RuleFor(s => s.Discount, f => f.Random.Decimal(0, 50))
         .RuleFor(s => s.CreatedAt, f => f.Date.Recent())
-        .RuleFor(s => s.UpdatedAt, f => f.Random.Bool() ? f.Date.Recent() : null);
+        .RuleFor(s => s.UpdatedAt, f => f.Random.Bool() ? f.Date.Recent() : null)
+        .FinishWith((f, s) => {
+            // Add some sale items
+            var itemCount = f.Random.Int(1, 3);
+            for (int i = 0; i < itemCount; i++)
+            {
+                var saleItem = new SaleItem(
+                    s.Id,
+                    f.Random.Guid(),
+                    f.Random.Int(1, 20),
+                    f.Random.Decimal(1, 1000),
+                    f.Random.Decimal(0, 50)
+                );
+                s.AddItem(saleItem);
+            }
+        });
 
     /// <summary>
     /// Generates a valid Sale entity with randomized data.
@@ -46,22 +59,17 @@ public static class SaleTestData
     }
 
     /// <summary>
-    /// Generates a Sale with minimal valid data.
+    /// Generates a Sale with minimal valid data (no items).
     /// </summary>
     /// <returns>A Sale with minimal valid data.</returns>
     public static Sale GenerateMinimalSale()
     {
-        return new Sale
-        {
-            SaleNumber = "SALE001",
-            SaleDate = DateTime.Now,
-            CustomerId = Guid.NewGuid(),
-            BranchId = Guid.NewGuid(),
-            ProductId = Guid.NewGuid(),
-            Quantity = 1,
-            UnitPrice = 10.00m,
-            Discount = 0m
-        };
+        return new Sale(
+            "SALE001",
+            DateTime.Now,
+            Guid.NewGuid(),
+            Guid.NewGuid()
+        );
     }
 
     /// <summary>

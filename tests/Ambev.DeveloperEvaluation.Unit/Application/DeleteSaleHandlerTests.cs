@@ -2,7 +2,7 @@ using Ambev.DeveloperEvaluation.Application.Sales.DeleteSale;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using Ambev.DeveloperEvaluation.Unit.Application.TestData;
-using AutoMapper;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 using FluentAssertions;
 using MediatR;
 using NSubstitute;
@@ -16,7 +16,7 @@ namespace Ambev.DeveloperEvaluation.Unit.Application;
 public class DeleteSaleHandlerTests
 {
     private readonly ISaleRepository _saleRepository;
-    private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly DeleteSaleHandler _handler;
 
     /// <summary>
@@ -26,8 +26,8 @@ public class DeleteSaleHandlerTests
     public DeleteSaleHandlerTests()
     {
         _saleRepository = Substitute.For<ISaleRepository>();
-        _mapper = Substitute.For<IMapper>();
-        _handler = new DeleteSaleHandler(_saleRepository, _mapper);
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _handler = new DeleteSaleHandler(_saleRepository, _unitOfWork);
     }
 
     /// <summary>
@@ -38,15 +38,21 @@ public class DeleteSaleHandlerTests
     {
         // Given
         var command = SaleTestData.GenerateValidDeleteCommand();
+        var sale = SaleTestData.GenerateValidSale();
+        sale.Id = command.Id;
 
+        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(sale);
         _saleRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Then
         result.Should().Be(MediatR.Unit.Value);
+        await _saleRepository.Received(1).GetByIdAsync(command.Id, Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).DeleteAsync(command.Id, Arg.Any<CancellationToken>());
     }
 
@@ -59,8 +65,8 @@ public class DeleteSaleHandlerTests
         // Given
         var command = SaleTestData.GenerateValidDeleteCommand();
 
-        _saleRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
-            .Returns(false);
+        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
@@ -68,7 +74,8 @@ public class DeleteSaleHandlerTests
         // Then
         await act.Should().ThrowAsync<KeyNotFoundException>()
             .WithMessage($"Sale with ID {command.Id} not found");
-        await _saleRepository.Received(1).DeleteAsync(command.Id, Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetByIdAsync(command.Id, Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().DeleteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -96,15 +103,21 @@ public class DeleteSaleHandlerTests
     {
         // Given
         var command = SaleTestData.GenerateValidDeleteCommand();
+        var sale = SaleTestData.GenerateValidSale();
+        sale.Id = command.Id;
 
+        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(sale);
         _saleRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
             .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Then
         result.Should().Be(MediatR.Unit.Value);
+        await _saleRepository.Received(1).GetByIdAsync(command.Id, Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).DeleteAsync(command.Id, Arg.Any<CancellationToken>());
     }
 
@@ -116,16 +129,22 @@ public class DeleteSaleHandlerTests
     {
         // Given
         var command = SaleTestData.GenerateValidDeleteCommand();
+        var sale = SaleTestData.GenerateValidSale();
+        sale.Id = command.Id;
 
+        _saleRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(sale);
         _saleRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
-            .Returns(false);
+            .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(false); // Simulate commit failure
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
 
         // Then
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage($"Sale with ID {command.Id} not found");
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Failed to commit sale deletion transaction");
+        await _saleRepository.Received(1).GetByIdAsync(command.Id, Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).DeleteAsync(command.Id, Arg.Any<CancellationToken>());
     }
 } 

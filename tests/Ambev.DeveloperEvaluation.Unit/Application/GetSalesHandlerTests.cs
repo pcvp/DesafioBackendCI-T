@@ -30,91 +30,70 @@ public class GetSalesHandlerTests
     }
 
     /// <summary>
-    /// Tests that a valid get sales request returns paginated sales successfully.
+    /// Tests that a valid query returns sales successfully.
     /// </summary>
-    [Fact(DisplayName = "Given valid query When getting sales Then returns paginated sales")]
-    public async Task Handle_ValidRequest_ReturnsPaginatedSales()
+    [Fact(DisplayName = "Handle should return sales when query is valid")]
+    public async Task Handle_ValidQuery_ReturnsSuccess()
     {
         // Given
-        var query = SaleTestData.GenerateValidGetSalesQuery();
-        var sales = SaleTestData.GenerateValidSales(3);
+        var query = new GetSalesQuery { Page = 1, Size = 10 };
+        var sales = SaleTestData.GenerateValidSalesList(2);
         var totalCount = 10;
 
-        var saleResults = sales.Select(s => new SaleDto
+        var saleResults = sales.Select(s => new SaleResultDto
         {
             Id = s.Id,
             SaleNumber = s.SaleNumber,
             SaleDate = s.SaleDate,
             CustomerId = s.CustomerId,
             BranchId = s.BranchId,
-            ProductId = s.ProductId,
-            Quantity = s.Quantity,
-            UnitPrice = s.UnitPrice,
-            Discount = s.Discount,
-            TotalAmount = s.TotalAmount,
-            TotalSaleAmount = s.TotalSaleAmount,
-            IsCancelled = s.IsCancelled,
+            Status = s.Status,
             CreatedAt = s.CreatedAt,
             UpdatedAt = s.UpdatedAt
         }).ToList();
 
-        _saleRepository.GetPagedAsync(
-            query.Page,
-            query.Size,
-            query.CustomerId,
-            query.BranchId,
-            query.StartDate,
-            query.EndDate,
-            query.IsCancelled,
-            Arg.Any<CancellationToken>())
+        var expectedResult = new GetSalesResult
+        {
+            Sales = saleResults,
+            CurrentPage = query.Page,
+            TotalPages = (int)Math.Ceiling((double)totalCount / query.Size),
+            TotalCount = totalCount,
+            HasNext = query.Page < (int)Math.Ceiling((double)totalCount / query.Size),
+            HasPrevious = query.Page > 1
+        };
+
+        _saleRepository.GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>())
             .Returns((sales, totalCount));
 
-        _mapper.Map<List<SaleDto>>(sales).Returns(saleResults);
+        _mapper.Map<List<SaleResultDto>>(sales).Returns(saleResults);
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
 
         // Then
         result.Should().NotBeNull();
-        result.Sales.Should().HaveCount(3);
+        result.Sales.Should().HaveCount(2);
+        result.CurrentPage.Should().Be(query.Page);
         result.TotalCount.Should().Be(totalCount);
-        result.Page.Should().Be(query.Page);
-        result.Size.Should().Be(query.Size);
-        result.TotalPages.Should().Be((int)Math.Ceiling((double)totalCount / query.Size));
-        await _saleRepository.Received(1).GetPagedAsync(
-            query.Page,
-            query.Size,
-            query.CustomerId,
-            query.BranchId,
-            query.StartDate,
-            query.EndDate,
-            query.IsCancelled,
-            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>());
+        _mapper.Received(1).Map<List<SaleResultDto>>(Arg.Is<List<Sale>>(s => s.Count == 2));
     }
 
     /// <summary>
-    /// Tests that when no sales are found, returns empty result.
+    /// Tests that empty results are handled correctly.
     /// </summary>
-    [Fact(DisplayName = "Given query with no results When getting sales Then returns empty result")]
+    [Fact(DisplayName = "Handle should return empty result when no sales found")]
     public async Task Handle_NoSalesFound_ReturnsEmptyResult()
     {
         // Given
-        var query = SaleTestData.GenerateValidGetSalesQuery();
+        var query = new GetSalesQuery { Page = 1, Size = 10 };
         var emptySales = new List<Sale>();
         var totalCount = 0;
 
-        _saleRepository.GetPagedAsync(
-            query.Page,
-            query.Size,
-            query.CustomerId,
-            query.BranchId,
-            query.StartDate,
-            query.EndDate,
-            query.IsCancelled,
-            Arg.Any<CancellationToken>())
+        _saleRepository.GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>())
             .Returns((emptySales, totalCount));
 
-        _mapper.Map<List<SaleDto>>(emptySales).Returns(new List<SaleDto>());
+        _mapper.Map<List<SaleResultDto>>(emptySales).Returns(new List<SaleResultDto>());
 
         // When
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -122,198 +101,99 @@ public class GetSalesHandlerTests
         // Then
         result.Should().NotBeNull();
         result.Sales.Should().BeEmpty();
+        result.CurrentPage.Should().Be(query.Page);
         result.TotalCount.Should().Be(0);
         result.TotalPages.Should().Be(0);
+        result.HasNext.Should().BeFalse();
+        result.HasPrevious.Should().BeFalse();
     }
 
     /// <summary>
-    /// Tests that validation is performed on the query.
+    /// Tests that pagination works correctly.
     /// </summary>
-    [Fact(DisplayName = "Given invalid query When getting sales Then throws validation exception")]
-    public async Task Handle_InvalidQuery_ThrowsValidationException()
+    [Fact(DisplayName = "Handle should handle pagination correctly")]
+    public async Task Handle_WithPagination_ReturnsPaginatedResult()
     {
         // Given
-        var query = new GetSalesQuery
-        {
-            Page = 0, // Invalid: page must be >= 1
-            Size = 10
-        };
+        var query = new GetSalesQuery { Page = 2, Size = 5 };
+        var sales = SaleTestData.GenerateValidSalesList(5);
+        var totalCount = 15;
 
-        // When
-        var act = () => _handler.Handle(query, CancellationToken.None);
-
-        // Then
-        await act.Should().ThrowAsync<FluentValidation.ValidationException>()
-            .Where(ex => ex.Errors.Any(e => e.PropertyName == nameof(GetSalesQuery.Page)));
-    }
-
-    /// <summary>
-    /// Tests that filtering by customer works correctly.
-    /// </summary>
-    [Fact(DisplayName = "Given query with customer filter When getting sales Then filters by customer")]
-    public async Task Handle_QueryWithCustomerFilter_FiltersCorrectly()
-    {
-        // Given
-        var customerId = Guid.NewGuid();
-        var query = new GetSalesQuery
-        {
-            Page = 1,
-            Size = 10,
-            CustomerId = customerId
-        };
-
-        var sales = SaleTestData.GenerateValidSales(2);
-        var totalCount = 2;
-
-        _saleRepository.GetPagedAsync(
-            query.Page,
-            query.Size,
-            customerId,
-            null,
-            null,
-            null,
-            null,
-            Arg.Any<CancellationToken>())
+        _saleRepository.GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>())
             .Returns((sales, totalCount));
 
-        _mapper.Map<List<SaleDto>>(sales).Returns(new List<SaleDto>());
+        _mapper.Map<List<SaleResultDto>>(sales).Returns(new List<SaleResultDto>());
+
+        // When
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Then
+        result.Should().NotBeNull();
+        result.CurrentPage.Should().Be(2);
+        result.TotalPages.Should().Be(3);
+        result.TotalCount.Should().Be(15);
+        result.HasNext.Should().BeTrue();
+        result.HasPrevious.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Tests that search functionality works correctly.
+    /// </summary>
+    [Fact(DisplayName = "Handle should filter sales by search term")]
+    public async Task Handle_WithSearchTerm_ReturnsFilteredResults()
+    {
+        // Given
+        var query = new GetSalesQuery { Page = 1, Size = 10, Search = "SALE001" };
+        var sales = SaleTestData.GenerateValidSalesList(1);
+        var totalCount = 1;
+
+        var saleResults = sales.Select(s => new SaleResultDto
+        {
+            Id = s.Id,
+            SaleNumber = s.SaleNumber,
+            SaleDate = s.SaleDate,
+            CustomerId = s.CustomerId,
+            BranchId = s.BranchId,
+            Status = s.Status,
+            CreatedAt = s.CreatedAt,
+            UpdatedAt = s.UpdatedAt
+        }).ToList();
+
+        _saleRepository.GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>())
+            .Returns((sales, totalCount));
+
+        _mapper.Map<List<SaleResultDto>>(sales).Returns(saleResults);
+
+        // When
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Then
+        result.Should().NotBeNull();
+        result.Sales.Should().HaveCount(1);
+        result.TotalCount.Should().Be(1);
+        await _saleRepository.Received(1).GetPagedAsync(query.Page, query.Size, "SALE001", null, null, null, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Tests that the mapper is called correctly.
+    /// </summary>
+    [Fact(DisplayName = "Handle should call mapper with correct parameters")]
+    public async Task Handle_ValidQuery_CallsMapperCorrectly()
+    {
+        // Given
+        var query = new GetSalesQuery { Page = 1, Size = 10 };
+        var sales = SaleTestData.GenerateValidSalesList(2);
+        var totalCount = 2;
+
+        _saleRepository.GetPagedAsync(query.Page, query.Size, query.Search, null, null, null, Arg.Any<CancellationToken>())
+            .Returns((sales, totalCount));
+
+        _mapper.Map<List<SaleResultDto>>(sales).Returns(new List<SaleResultDto>());
 
         // When
         await _handler.Handle(query, CancellationToken.None);
 
         // Then
-        await _saleRepository.Received(1).GetPagedAsync(
-            query.Page,
-            query.Size,
-            customerId,
-            null,
-            null,
-            null,
-            null,
-            Arg.Any<CancellationToken>());
-    }
-
-    /// <summary>
-    /// Tests that filtering by date range works correctly.
-    /// </summary>
-    [Fact(DisplayName = "Given query with date range When getting sales Then filters by date range")]
-    public async Task Handle_QueryWithDateRange_FiltersCorrectly()
-    {
-        // Given
-        var startDate = DateTime.Now.AddDays(-30);
-        var endDate = DateTime.Now;
-        var query = new GetSalesQuery
-        {
-            Page = 1,
-            Size = 10,
-            StartDate = startDate,
-            EndDate = endDate
-        };
-
-        var sales = SaleTestData.GenerateValidSales(2);
-        var totalCount = 2;
-
-        _saleRepository.GetPagedAsync(
-            query.Page,
-            query.Size,
-            null,
-            null,
-            startDate,
-            endDate,
-            null,
-            Arg.Any<CancellationToken>())
-            .Returns((sales, totalCount));
-
-        _mapper.Map<List<SaleDto>>(sales).Returns(new List<SaleDto>());
-
-        // When
-        await _handler.Handle(query, CancellationToken.None);
-
-        // Then
-        await _saleRepository.Received(1).GetPagedAsync(
-            query.Page,
-            query.Size,
-            null,
-            null,
-            startDate,
-            endDate,
-            null,
-            Arg.Any<CancellationToken>());
-    }
-
-    /// <summary>
-    /// Tests that filtering by cancelled status works correctly.
-    /// </summary>
-    [Fact(DisplayName = "Given query with cancelled filter When getting sales Then filters by cancelled status")]
-    public async Task Handle_QueryWithCancelledFilter_FiltersCorrectly()
-    {
-        // Given
-        var query = new GetSalesQuery
-        {
-            Page = 1,
-            Size = 10,
-            IsCancelled = true
-        };
-
-        var sales = SaleTestData.GenerateValidSales(2);
-        var totalCount = 2;
-
-        _saleRepository.GetPagedAsync(
-            query.Page,
-            query.Size,
-            null,
-            null,
-            null,
-            null,
-            true,
-            Arg.Any<CancellationToken>())
-            .Returns((sales, totalCount));
-
-        _mapper.Map<List<SaleDto>>(sales).Returns(new List<SaleDto>());
-
-        // When
-        await _handler.Handle(query, CancellationToken.None);
-
-        // Then
-        await _saleRepository.Received(1).GetPagedAsync(
-            query.Page,
-            query.Size,
-            null,
-            null,
-            null,
-            null,
-            true,
-            Arg.Any<CancellationToken>());
-    }
-
-    /// <summary>
-    /// Tests that the mapper is called with the found sales.
-    /// </summary>
-    [Fact(DisplayName = "Given valid query When sales found Then maps sales to DTOs")]
-    public async Task Handle_SalesFound_MapsSalesToDtos()
-    {
-        // Given
-        var query = SaleTestData.GenerateValidGetSalesQuery();
-        var sales = SaleTestData.GenerateValidSales(2);
-        var totalCount = 2;
-
-        _saleRepository.GetPagedAsync(
-            Arg.Any<int>(),
-            Arg.Any<int>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<DateTime?>(),
-            Arg.Any<DateTime?>(),
-            Arg.Any<bool?>(),
-            Arg.Any<CancellationToken>())
-            .Returns((sales, totalCount));
-
-        _mapper.Map<List<SaleDto>>(sales).Returns(new List<SaleDto>());
-
-        // When
-        await _handler.Handle(query, CancellationToken.None);
-
-        // Then
-        _mapper.Received(1).Map<List<SaleDto>>(Arg.Is<List<Sale>>(s => s.Count == 2));
+        _mapper.Received(1).Map<List<SaleResultDto>>(Arg.Is<List<Sale>>(s => s.Count == 2));
     }
 } 

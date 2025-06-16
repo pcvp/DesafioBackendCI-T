@@ -4,17 +4,17 @@ using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSales;
 
 /// <summary>
-/// Profile for mapping between GetSales request/response and query/result
+/// Profile for mapping between Application and API GetSales requests
 /// </summary>
 public class GetSalesProfile : Profile
 {
     /// <summary>
-    /// Initializes the mappings for GetSales operation
+    /// Initializes the mappings for GetSales feature
     /// </summary>
     public GetSalesProfile()
     {
         CreateMap<GetSalesRequest, GetSalesQuery>();
         CreateMap<GetSalesResult, GetSalesResponse>();
-        CreateMap<SaleResultDto, SaleDto>();
+        CreateMap<SaleResultDto, SaleResponseDto>();
     }
 } 

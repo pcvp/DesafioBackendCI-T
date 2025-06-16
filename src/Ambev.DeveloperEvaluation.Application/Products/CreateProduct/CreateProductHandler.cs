@@ -1,15 +1,17 @@
+using Ambev.DeveloperEvaluation.Application.Base;
 using AutoMapper;
 using MediatR;
 using FluentValidation;
-using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Entities;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Application.Products.CreateProduct;
 
 /// <summary>
 /// Handler for processing CreateProductCommand requests
 /// </summary>
-public class CreateProductHandler : IRequestHandler<CreateProductCommand, CreateProductResult>
+public class CreateProductHandler : BaseCommandHandler, IRequestHandler<CreateProductCommand, CreateProductResult>
 {
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
@@ -19,7 +21,8 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Create
     /// </summary>
     /// <param name="productRepository">The product repository</param>
     /// <param name="mapper">The AutoMapper instance</param>
-    public CreateProductHandler(IProductRepository productRepository, IMapper mapper)
+    /// <param name="unitOfWork">The unit of work</param>
+    public CreateProductHandler(IProductRepository productRepository, IMapper mapper, IUnitOfWork unitOfWork) : base(unitOfWork)
     {
         _productRepository = productRepository;
         _mapper = mapper;
@@ -39,9 +42,13 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Create
         if (!validationResult.IsValid)
             throw new ValidationException(validationResult.Errors);
 
-        var product = new Product(command.Name, command.Price);
+        var product = _mapper.Map<Product>(command);
         var createdProduct = await _productRepository.CreateAsync(product, cancellationToken);
 
-        return _mapper.Map<CreateProductResult>(createdProduct);
+        if (!await Commit(cancellationToken))
+            throw new InvalidOperationException("Failed to commit product creation transaction");
+
+        var result = _mapper.Map<CreateProductResult>(createdProduct);
+        return result;
     }
 } 

@@ -25,7 +25,7 @@ public class Product : BaseEntity
     /// <summary>
     /// Gets the date and time when the product was created
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// Gets the date and time of the last update to the product's information

@@ -4,7 +4,7 @@ using Ambev.DeveloperEvaluation.Domain.Entities;
 namespace Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 
 /// <summary>
-/// Profile for mapping between Sale entity and CreateSaleResult
+/// Profile for mapping between Sale entity and CreateSale operations
 /// </summary>
 public class CreateSaleProfile : Profile
 {
@@ -13,6 +13,9 @@ public class CreateSaleProfile : Profile
     /// </summary>
     public CreateSaleProfile()
     {
-        CreateMap<Sale, CreateSaleResult>();
+        CreateMap<Sale, CreateSaleResult>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+        
+        CreateMap<SaleItem, CreateSaleItemResult>();
     }
 } 

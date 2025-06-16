@@ -6,6 +6,7 @@ using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Unit.Application;
 
@@ -16,6 +17,7 @@ public class CreateProductHandlerTests
 {
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly CreateProductHandler _handler;
 
     /// <summary>
@@ -26,7 +28,8 @@ public class CreateProductHandlerTests
     {
         _productRepository = Substitute.For<IProductRepository>();
         _mapper = Substitute.For<IMapper>();
-        _handler = new CreateProductHandler(_productRepository, _mapper);
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _handler = new CreateProductHandler(_productRepository, _mapper, _unitOfWork);
     }
 
     /// <summary>
@@ -51,9 +54,11 @@ public class CreateProductHandlerTests
             CreatedAt = product.CreatedAt
         };
 
+        _mapper.Map<Product>(command).Returns(product);
         _productRepository.CreateAsync(Arg.Any<Product>(), Arg.Any<CancellationToken>())
             .Returns(product);
         _mapper.Map<CreateProductResult>(product).Returns(result);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var createProductResult = await _handler.Handle(command, CancellationToken.None);
@@ -96,9 +101,11 @@ public class CreateProductHandlerTests
             Id = Guid.NewGuid()
         };
 
+        _mapper.Map<Product>(command).Returns(product);
         _productRepository.CreateAsync(Arg.Any<Product>(), Arg.Any<CancellationToken>())
             .Returns(product);
         _mapper.Map<CreateProductResult>(Arg.Any<Product>()).Returns(new CreateProductResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);
@@ -125,9 +132,11 @@ public class CreateProductHandlerTests
             Id = Guid.NewGuid()
         };
 
+        _mapper.Map<Product>(command).Returns(product);
         _productRepository.CreateAsync(Arg.Any<Product>(), Arg.Any<CancellationToken>())
             .Returns(product);
         _mapper.Map<CreateProductResult>(product).Returns(new CreateProductResult());
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         await _handler.Handle(command, CancellationToken.None);

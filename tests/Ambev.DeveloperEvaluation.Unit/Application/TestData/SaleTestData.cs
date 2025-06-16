@@ -1,8 +1,8 @@
 using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
+using Ambev.DeveloperEvaluation.Application.Sales.DeleteSale;
 using Ambev.DeveloperEvaluation.Application.Sales.GetSale;
 using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 using Ambev.DeveloperEvaluation.Application.Sales.UpdateSale;
-using Ambev.DeveloperEvaluation.Application.Sales.DeleteSale;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Bogus;
 
@@ -16,6 +16,15 @@ namespace Ambev.DeveloperEvaluation.Unit.Application.TestData;
 public static class SaleTestData
 {
     /// <summary>
+    /// Configures the Faker to generate valid CreateSaleItemCommand entities.
+    /// </summary>
+    private static readonly Faker<CreateSaleItemCommand> createSaleItemCommandFaker = new Faker<CreateSaleItemCommand>()
+        .RuleFor(s => s.ProductId, f => f.Random.Guid())
+        .RuleFor(s => s.Quantity, f => f.Random.Int(1, 20))
+        .RuleFor(s => s.UnitPrice, f => f.Random.Decimal(1.01m, 1000m))
+        .RuleFor(s => s.Discount, f => f.Random.Decimal(0, 50));
+
+    /// <summary>
     /// Configures the Faker to generate valid CreateSaleCommand entities.
     /// </summary>
     private static readonly Faker<CreateSaleCommand> createSaleCommandFaker = new Faker<CreateSaleCommand>()
@@ -23,12 +32,7 @@ public static class SaleTestData
         .RuleFor(s => s.SaleDate, f => f.Date.Recent())
         .RuleFor(s => s.CustomerId, f => f.Random.Guid())
         .RuleFor(s => s.BranchId, f => f.Random.Guid())
-        .RuleFor(s => s.ProductId, f => f.Random.Guid())
-        .RuleFor(s => s.Quantity, f => f.Random.Int(1, 100))
-        .RuleFor(s => s.UnitPrice, f => f.Random.Decimal(1, 1000))
-        .RuleFor(s => s.Discount, f => f.Random.Decimal(0, 50))
-        .RuleFor(s => s.TotalAmount, (f, s) => s.Quantity * s.UnitPrice * (1 - s.Discount / 100))
-        .RuleFor(s => s.TotalSaleAmount, (f, s) => s.TotalAmount);
+        .RuleFor(s => s.Items, f => createSaleItemCommandFaker.Generate(f.Random.Int(1, 3))); // 1-3 items
 
     /// <summary>
     /// Configures the Faker to generate valid GetSaleQuery entities.
@@ -42,11 +46,7 @@ public static class SaleTestData
     private static readonly Faker<GetSalesQuery> getSalesQueryFaker = new Faker<GetSalesQuery>()
         .RuleFor(s => s.Page, f => f.Random.Int(1, 10))
         .RuleFor(s => s.Size, f => f.Random.Int(1, 100))
-        .RuleFor(s => s.CustomerId, f => f.Random.Bool() ? f.Random.Guid() : null)
-        .RuleFor(s => s.BranchId, f => f.Random.Bool() ? f.Random.Guid() : null)
-        .RuleFor(s => s.StartDate, f => f.Random.Bool() ? f.Date.Past() : null)
-        .RuleFor(s => s.EndDate, f => f.Random.Bool() ? f.Date.Recent() : null)
-        .RuleFor(s => s.IsCancelled, f => f.Random.Bool() ? f.Random.Bool() : null);
+        .RuleFor(s => s.Search, f => f.Random.Bool() ? f.Random.AlphaNumeric(5) : null);
 
     /// <summary>
     /// Configures the Faker to generate valid UpdateSaleCommand entities.
@@ -58,12 +58,10 @@ public static class SaleTestData
         .RuleFor(s => s.CustomerId, f => f.Random.Guid())
         .RuleFor(s => s.BranchId, f => f.Random.Guid())
         .RuleFor(s => s.ProductId, f => f.Random.Guid())
-        .RuleFor(s => s.Quantity, f => f.Random.Int(1, 100))
-        .RuleFor(s => s.UnitPrice, f => f.Random.Decimal(1, 1000))
+        .RuleFor(s => s.Quantity, f => f.Random.Int(1, 20))
+        .RuleFor(s => s.UnitPrice, f => f.Random.Decimal(1.01m, 1000m))
         .RuleFor(s => s.Discount, f => f.Random.Decimal(0, 50))
-        .RuleFor(s => s.TotalAmount, (f, s) => s.Quantity * s.UnitPrice * (1 - s.Discount / 100))
-        .RuleFor(s => s.TotalSaleAmount, (f, s) => s.TotalAmount)
-        .RuleFor(s => s.IsCancelled, f => f.Random.Bool());
+        .RuleFor(s => s.Status, f => f.PickRandom<SaleStatusEnum>());
 
     /// <summary>
     /// Configures the Faker to generate valid DeleteSaleCommand entities.
@@ -79,15 +77,26 @@ public static class SaleTestData
             f.Random.AlphaNumeric(10),
             f.Date.Recent(),
             f.Random.Guid(),
-            f.Random.Guid(),
-            f.Random.Guid(),
-            f.Random.Int(1, 100),
-            f.Random.Decimal(1, 1000),
-            f.Random.Decimal(0, 50)
+            f.Random.Guid()
         ))
         .RuleFor(s => s.Id, f => f.Random.Guid())
         .RuleFor(s => s.CreatedAt, f => f.Date.Recent())
-        .RuleFor(s => s.UpdatedAt, f => f.Random.Bool() ? f.Date.Recent() : null);
+        .RuleFor(s => s.UpdatedAt, f => f.Random.Bool() ? f.Date.Recent() : null)
+        .FinishWith((f, s) => {
+            // Add some sale items
+            var itemCount = f.Random.Int(1, 3);
+            for (int i = 0; i < itemCount; i++)
+            {
+                var saleItem = new SaleItem(
+                    s.Id,
+                    f.Random.Guid(),
+                    f.Random.Int(1, 20),
+                    f.Random.Decimal(1, 1000),
+                    f.Random.Decimal(0, 50)
+                );
+                s.AddItem(saleItem);
+            }
+        });
 
     /// <summary>
     /// Generates a valid CreateSaleCommand with randomized data.
@@ -96,6 +105,17 @@ public static class SaleTestData
     public static CreateSaleCommand GenerateValidCreateCommand()
     {
         return createSaleCommandFaker.Generate();
+    }
+
+    /// <summary>
+    /// Generates a valid CreateSaleCommand without items.
+    /// </summary>
+    /// <returns>A valid CreateSaleCommand without items.</returns>
+    public static CreateSaleCommand GenerateValidCreateCommandWithoutItems()
+    {
+        var command = createSaleCommandFaker.Generate();
+        command.Items = new List<CreateSaleItemCommand>();
+        return command;
     }
 
     /// <summary>
@@ -154,6 +174,16 @@ public static class SaleTestData
     }
 
     /// <summary>
+    /// Generates a list of valid Sale entities with randomized data.
+    /// </summary>
+    /// <param name="count">Number of sales to generate</param>
+    /// <returns>A list of valid Sale entities with randomly generated data.</returns>
+    public static List<Sale> GenerateValidSalesList(int count = 5)
+    {
+        return GenerateValidSales(count);
+    }
+
+    /// <summary>
     /// Generates a CreateSaleCommand with invalid data for testing validation.
     /// </summary>
     /// <returns>A CreateSaleCommand with invalid data.</returns>
@@ -165,12 +195,16 @@ public static class SaleTestData
             SaleDate = DateTime.MinValue, // Invalid: min value
             CustomerId = Guid.Empty, // Invalid: empty guid
             BranchId = Guid.Empty, // Invalid: empty guid
-            ProductId = Guid.Empty, // Invalid: empty guid
-            Quantity = 0, // Invalid: zero quantity
-            UnitPrice = -1, // Invalid: negative price
-            Discount = -5, // Invalid: negative discount
-            TotalAmount = 0,
-            TotalSaleAmount = 0
+            Items = new List<CreateSaleItemCommand>
+            {
+                new CreateSaleItemCommand
+                {
+                    ProductId = Guid.Empty, // Invalid: empty guid
+                    Quantity = 0, // Invalid: zero quantity
+                    UnitPrice = -1, // Invalid: negative price
+                    Discount = -5 // Invalid: negative discount
+                }
+            }
         };
     }
 
@@ -189,11 +223,8 @@ public static class SaleTestData
             BranchId = Guid.Empty, // Invalid: empty guid
             ProductId = Guid.Empty, // Invalid: empty guid
             Quantity = 0, // Invalid: zero quantity
-            UnitPrice = -1, // Invalid: negative price
-            Discount = -5, // Invalid: negative discount
-            TotalAmount = 0,
-            TotalSaleAmount = 0,
-            IsCancelled = false
+            UnitPrice = 0, // Invalid: zero price
+            Discount = -5 // Invalid: negative discount
         };
     }
 } 

@@ -1,3 +1,5 @@
+using Ambev.DeveloperEvaluation.Domain.Entities;
+
 namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSales;
 
 /// <summary>
@@ -8,7 +10,7 @@ public class GetSalesResponse
     /// <summary>
     /// Gets or sets the list of sales
     /// </summary>
-    public List<SaleDto> Data { get; set; } = new();
+    public List<SaleResponseDto> Sales { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the current page number
@@ -37,9 +39,9 @@ public class GetSalesResponse
 }
 
 /// <summary>
-/// DTO for sale information in the list
+/// DTO for individual sale in the response list
 /// </summary>
-public class SaleDto
+public class SaleResponseDto
 {
     /// <summary>
     /// Gets or sets the unique identifier of the sale
@@ -67,39 +69,14 @@ public class SaleDto
     public Guid BranchId { get; set; }
 
     /// <summary>
-    /// Gets or sets the product ID
-    /// </summary>
-    public Guid ProductId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the quantity of products sold
-    /// </summary>
-    public int Quantity { get; set; }
-
-    /// <summary>
-    /// Gets or sets the unit price of the product
-    /// </summary>
-    public decimal UnitPrice { get; set; }
-
-    /// <summary>
-    /// Gets or sets the discount applied to the sale
-    /// </summary>
-    public decimal Discount { get; set; }
-
-    /// <summary>
-    /// Gets or sets the total amount for the sale item
+    /// Gets or sets the total amount for the sale
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// Gets or sets the total sale amount
+    /// Gets or sets the sale status
     /// </summary>
-    public decimal TotalSaleAmount { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the sale is cancelled
-    /// </summary>
-    public bool IsCancelled { get; set; }
+    public SaleStatusEnum Status { get; set; }
 
     /// <summary>
     /// Gets or sets the date and time when the sale was created

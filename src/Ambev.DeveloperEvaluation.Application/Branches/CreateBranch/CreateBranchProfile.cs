@@ -13,6 +13,7 @@ public class CreateBranchProfile : Profile
     /// </summary>
     public CreateBranchProfile()
     {
+        CreateMap<CreateBranchCommand, Branch>();
         CreateMap<Branch, CreateBranchResult>();
     }
 } 

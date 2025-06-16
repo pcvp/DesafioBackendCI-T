@@ -79,7 +79,7 @@ public class SaleRepository : ISaleRepository
 
         if (isCancelledFilter.HasValue)
         {
-            query = query.Where(s => s.IsCancelled == isCancelledFilter.Value);
+            query = query.Where(s => s.Status == SaleStatusEnum.Cancelled);
         }
 
         // Get total count before pagination

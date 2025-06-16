@@ -4,6 +4,8 @@ using AutoMapper;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
+using Ambev.DeveloperEvaluation.Domain.Repositories;
+using Ambev.DeveloperEvaluation.Domain.Uow;
 
 namespace Ambev.DeveloperEvaluation.Unit.Application;
 
@@ -12,7 +14,8 @@ namespace Ambev.DeveloperEvaluation.Unit.Application;
 /// </summary>
 public class DeleteProductHandlerTests
 {
-    private readonly IMapper _mapper;
+    private readonly IProductRepository _productRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly DeleteProductHandler _handler;
 
     /// <summary>
@@ -21,8 +24,9 @@ public class DeleteProductHandlerTests
     /// </summary>
     public DeleteProductHandlerTests()
     {
-        _mapper = Substitute.For<IMapper>();
-        _handler = new DeleteProductHandler(_mapper);
+        _productRepository = Substitute.For<IProductRepository>();
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _handler = new DeleteProductHandler(_productRepository, _unitOfWork);
     }
 
     /// <summary>
@@ -33,6 +37,13 @@ public class DeleteProductHandlerTests
     {
         // Given
         var command = ProductTestData.GenerateValidDeleteCommand();
+        var product = new Ambev.DeveloperEvaluation.Domain.Entities.Product("Test Product", 10.50m) { Id = command.Id };
+        
+        _productRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(product);
+        _productRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
@@ -88,6 +99,13 @@ public class DeleteProductHandlerTests
         {
             Id = Guid.NewGuid()
         };
+        var product = new Ambev.DeveloperEvaluation.Domain.Entities.Product("Test Product", 10.50m) { Id = command.Id };
+        
+        _productRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(product);
+        _productRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When
         var act = () => _handler.Handle(command, CancellationToken.None);
@@ -104,6 +122,13 @@ public class DeleteProductHandlerTests
     {
         // Given
         var command = ProductTestData.GenerateValidDeleteCommand();
+        var product = new Ambev.DeveloperEvaluation.Domain.Entities.Product("Test Product", 10.50m) { Id = command.Id };
+        
+        _productRepository.GetByIdAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(product);
+        _productRepository.DeleteAsync(command.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        _unitOfWork.Commit(Arg.Any<CancellationToken>()).Returns(true);
 
         // When & Then
         var exception = await Record.ExceptionAsync(() => _handler.Handle(command, CancellationToken.None));
