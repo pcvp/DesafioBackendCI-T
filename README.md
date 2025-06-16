@@ -33,7 +33,7 @@ cd backend
 
 2. **Execute com Docker Compose:**
 ```bash
-docker-compose up -d
+docker-compose up --build -d
 ```
 
 3. **Acesse a API:**
@@ -78,17 +78,31 @@ docker-compose down
 # Ver logs da API
 docker-compose logs -f ambev.developerevaluation.webapi
 
-# Reconstruir e executar
-docker-compose up --build
-
-# Executar apenas o banco de dados
-docker-compose up -d ambev.developerevaluation.database
 ```
 
 ### 🏥 Health Check
 
 A API possui health checks disponíveis:
 - **Health Check**: http://localhost:8080/health
+
+### 🚀 Melhorias de Execução Implementadas
+
+**✅ Execução Automática de Migrations**
+- As migrations do banco de dados são executadas automaticamente na inicialização da API
+- Sistema de retry inteligente: até 10 tentativas com intervalo de 5 segundos
+- Logs detalhados do processo de migration
+- Verificação de conectividade antes da execução
+
+**✅ Dependências do Docker**
+- PostgreSQL com health check integrado
+- API aguarda o banco estar totalmente disponível antes de iniciar
+- Retry automático em caso de falha de conexão
+- Logs informativos durante o processo
+
+**✅ Configuração Robusta**
+- Aplicação aguarda até 50 segundos para o PostgreSQL estar pronto
+- Verificação de conectividade antes de aplicar migrations
+- Tratamento de erro com logs detalhados
 
 ### 🎉 Primeiros Passos após Executar
 

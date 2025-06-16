@@ -7,6 +7,13 @@ services:
     build:
       context: .
       dockerfile: src/Ambev.DeveloperEvaluation.WebApi/Dockerfile
+    depends_on:
+      ambev.developerevaluation.database:
+        condition: service_healthy
+      ambev.developerevaluation.nosql:
+        condition: service_started
+      ambev.developerevaluation.cache:
+        condition: service_started
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
@@ -30,6 +37,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U developer -d developer_evaluation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   ambev.developerevaluation.nosql:
     container_name: ambev_developer_evaluation_nosql 

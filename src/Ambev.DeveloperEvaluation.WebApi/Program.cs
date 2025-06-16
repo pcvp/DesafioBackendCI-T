@@ -14,7 +14,7 @@ namespace Ambev.DeveloperEvaluation.WebApi;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         try
         {
@@ -25,6 +25,17 @@ public class Program
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
+
+            // Add CORS services
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
 
             builder.AddBasicHealthChecks();
             builder.Services.AddSwaggerGen();
@@ -54,20 +65,46 @@ public class Program
 
             var app = builder.Build();
             
-            // Execute migrations automatically on startup only for testing purposes
-            using (var scope = app.Services.CreateScope())
+            // Execute migrations automatically on startup with retry logic
+            await ApplyDatabaseMigrationsAsync(app.Services);
+            
+            async Task ApplyDatabaseMigrationsAsync(IServiceProvider services)
             {
-                var context = scope.ServiceProvider.GetRequiredService<DefaultContext>();
-                try
+                const int maxRetries = 10;
+                const int delaySeconds = 5;
+                
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
-                    Log.Information("Applying database migrations...");
-                    context.Database.Migrate();
-                    Log.Information("Database migrations applied successfully");
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Error applying database migrations");
-                    throw;
+                    try
+                    {
+                        using var scope = services.CreateScope();
+                        var context = scope.ServiceProvider.GetRequiredService<DefaultContext>();
+                        
+                        Log.Information("Attempting to apply database migrations (attempt {Attempt}/{MaxRetries})...", 
+                                      attempt, maxRetries);
+                        
+                        // Test connection first
+                        await context.Database.CanConnectAsync();
+                        
+                        // Apply migrations
+                        await context.Database.MigrateAsync();
+                        
+                        Log.Information("Database migrations applied successfully");
+                        return;
+                    }
+                    catch (Exception ex) when (attempt < maxRetries)
+                    {
+                        Log.Warning(ex, "Failed to apply migrations on attempt {Attempt}/{MaxRetries}. " + 
+                                      "Retrying in {DelaySeconds} seconds...", 
+                                      attempt, maxRetries, delaySeconds);
+                        
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Fatal(ex, "Failed to apply database migrations after {MaxRetries} attempts", maxRetries);
+                        throw;
+                    }
                 }
             }
             
@@ -80,6 +117,8 @@ public class Program
             }
 
             app.UseHttpsRedirection();
+
+            app.UseCors();
 
             app.UseAuthentication();
             app.UseAuthorization();
